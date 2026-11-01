@@ -4,7 +4,7 @@ import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../src/lib/supabase";
-import { generateICS } from "../../src/lib/ical";
+import { exportToReminders } from "../../src/lib/reminders";
 
 interface Recipe {
   id: string;
@@ -32,6 +32,7 @@ function PlanContent() {
   const [weeklyPlan, setWeeklyPlan] = useState<DayPlan[]>([]);
   const [shoppingList, setShoppingList] = useState<Ingredient[]>([]);
   const [loading, setLoading] = useState(true);
+  const [exportMessage, setExportMessage] = useState("");
 
   useEffect(() => {
     fetchRecipes();
@@ -113,14 +114,30 @@ function PlanContent() {
     }
   };
 
-  const handleExportCalendar = () => {
+  const handleExportReminders = async () => {
     const exportData = weeklyPlan.map((day) => ({
       day: day.dayName,
       date: day.date,
       recipeTitle: day.recipe ? day.recipe.title : "",
     }));
 
-    generateICS(exportData);
+    const result = await exportToReminders(exportData);
+
+    switch (result) {
+      case "copied":
+        setExportMessage(
+          "Plan kopiert. Öffne Erinnerungen, lege eine neue Liste an und füge den Text ein – jede Zeile wird eine Checkbox."
+        );
+        break;
+      case "shared":
+        setExportMessage("Plan geteilt. Wähle Erinnerungen als Ziel.");
+        break;
+      case "empty":
+        setExportMessage("Wähle zuerst mindestens ein Gericht für die Woche aus.");
+        break;
+      default:
+        setExportMessage("Export hat nicht geklappt – Zwischenablage und Teilen sind nicht verfügbar.");
+    }
   };
 
   if (loading) {
@@ -145,12 +162,18 @@ function PlanContent() {
           <p className="text-sm text-slate-500">Plane deine Gerichte und erhalte automatisch deine Einkaufsliste.</p>
         </div>
         <button
-          onClick={handleExportCalendar}
+          onClick={handleExportReminders}
           className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm rounded-xl transition-all shadow-sm"
         >
-          📅 In Kalender exportieren (iCal)
+          ✅ In Erinnerungen exportieren
         </button>
       </div>
+
+      {exportMessage && (
+        <p className="text-sm text-slate-600 bg-indigo-50 border border-indigo-100 rounded-xl p-3">
+          {exportMessage}
+        </p>
+      )}
 
       {/* Wochentage Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
