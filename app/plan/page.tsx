@@ -7,98 +7,117 @@ import { supabase } from "../../src/lib/supabase";
 import { exportToReminders } from "../../src/lib/reminders";
 
 interface Recipe {
-  id: string;
+  id: number;
   title: string;
   category: string;
   image_url: string;
 }
 
-interface Ingredient {
+interface IngredientRow {
+  recipe_id: number;
   name: string;
   amount: string | null;
+}
+
+interface ShoppingItem {
+  name: string;
+  amounts: string[]; // eine Menge pro Verwendung, bewusst nicht addiert
+  count: number; // wie oft die Zutat im Plan gebraucht wird
 }
 
 interface DayPlan {
   dayName: string;
   date: Date;
-  recipeId: string | null;
+  recipeId: number | null;
   recipe: Recipe | null;
+}
+
+const DAY_NAMES = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
+
+// Die Woche läuft von Samstag bis Freitag und wechselt von Freitag auf Samstag.
+function buildWeek(today: Date = new Date()): DayPlan[] {
+  const daysSinceSaturday = (today.getDay() + 1) % 7; // Sa=0, So=1, ... Fr=6
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate() - daysSinceSaturday);
+
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(start.getFullYear(), start.getMonth(), start.getDate() + index);
+    return { dayName: DAY_NAMES[date.getDay()], date, recipeId: null, recipe: null };
+  });
+}
+
+// Gleiche Zutaten (ohne Beachtung von Groß-/Kleinschreibung) werden zusammengefasst,
+// die Mengen bleiben einzeln stehen. Ein Gericht, das an zwei Tagen geplant ist,
+// zählt auch zweimal.
+function buildShoppingList(plan: DayPlan[], rows: IngredientRow[]): ShoppingItem[] {
+  const items = new Map<string, ShoppingItem>();
+
+  plan.forEach((day) => {
+    if (day.recipeId === null) return;
+
+    rows
+      .filter((row) => row.recipe_id === day.recipeId)
+      .forEach((row) => {
+        const key = row.name.trim().toLowerCase();
+        const item = items.get(key) ?? { name: row.name.trim(), amounts: [], count: 0 };
+        item.count += 1;
+        if (row.amount) item.amounts.push(row.amount);
+        items.set(key, item);
+      });
+  });
+
+  return Array.from(items.values());
 }
 
 function PlanContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [recipes, setRecipes] = useState<Recipe[]>([]);
-  const [weeklyPlan, setWeeklyPlan] = useState<DayPlan[]>([]);
-  const [shoppingList, setShoppingList] = useState<Ingredient[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [weeklyPlan, setWeeklyPlan] = useState<DayPlan[]>(() => buildWeek());
+  const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]);
   const [exportMessage, setExportMessage] = useState("");
 
   useEffect(() => {
-    fetchRecipes();
-    initWeekDays();
-  }, []);
+    const loadRecipes = async () => {
+      // Holt die IDs aus der URL (z.B. ?ids=1,2)
+      const selectedIdsParam = searchParams.get("ids");
 
-  const fetchRecipes = async () => {
-    // Holt die IDs aus der URL (z.B. ?ids=uuid-1,uuid-2)
-    const selectedIdsParam = searchParams.get("ids");
-    
-    let query = supabase.from("recipes").select("*");
+      let query = supabase.from("recipes").select("*");
 
-    // Wenn IDs übergeben wurden, filtern wir die Rezepte direkt
-    if (selectedIdsParam) {
-      const ids = selectedIdsParam.split(",");
-      query = query.in("id", ids);
-    }
-
-    const { data, error } = await query;
-    if (!error && data) {
-      setRecipes(data);
-    }
-  };
-
-  const initWeekDays = () => {
-    const today = new Date();
-    const currentDayOfWeek = today.getDay();
-    const distanceToMonday = currentDayOfWeek === 0 ? -6 : 1 - currentDayOfWeek;
-    
-    const monday = new Date(today);
-    monday.setDate(today.getDate() + distanceToMonday);
-
-    const days = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"];
-    
-    const initialPlan: DayPlan[] = days.map((name, index) => {
-      const date = new Date(monday);
-      date.setDate(monday.getDate() + index);
-      return {
-        dayName: name,
-        date,
-        recipeId: null,
-        recipe: null,
-      };
-    });
-
-    setWeeklyPlan(initialPlan);
-    setLoading(false);
-  };
-
-  const handleAssignRecipe = (dayName: string, recipeId: string) => {
-    const selectedRecipe = recipes.find((r) => r.id === recipeId) || null;
-    
-    const updated = weeklyPlan.map((day) => {
-      if (day.dayName === dayName) {
-        return { ...day, recipeId, recipe: selectedRecipe };
+      // Wenn IDs übergeben wurden, filtern wir die Rezepte direkt
+      if (selectedIdsParam) {
+        const ids = selectedIdsParam
+          .split(",")
+          .map(Number)
+          .filter((id) => Number.isInteger(id));
+        query = query.in("id", ids);
       }
-      return day;
-    });
+
+      const { data, error } = await query;
+      if (!error && data) {
+        setRecipes(data);
+      }
+    };
+
+    loadRecipes();
+  }, [searchParams]);
+
+  const handleAssignRecipe = (dayName: string, value: string) => {
+    const recipeId = value === "" ? null : Number(value);
+    const selectedRecipe = recipes.find((r) => r.id === recipeId) || null;
+
+    const updated = weeklyPlan.map((day) =>
+      day.dayName === dayName ? { ...day, recipeId, recipe: selectedRecipe } : day
+    );
 
     setWeeklyPlan(updated);
-    generateShoppingList(updated);
+    updateShoppingList(updated);
   };
 
-  const generateShoppingList = async (plan: DayPlan[]) => {
-    const recipeIds = plan.filter((d) => d.recipeId !== null).map((d) => d.recipeId as string);
-    
+  const updateShoppingList = async (plan: DayPlan[]) => {
+    const recipeIds = Array.from(
+      new Set(plan.filter((d) => d.recipeId !== null).map((d) => d.recipeId as number))
+    );
+
     if (recipeIds.length === 0) {
       setShoppingList([]);
       return;
@@ -106,11 +125,11 @@ function PlanContent() {
 
     const { data, error } = await supabase
       .from("recipe_ingredients")
-      .select("name, amount")
+      .select("recipe_id, name, amount")
       .in("recipe_id", recipeIds);
 
     if (!error && data) {
-      setShoppingList(data);
+      setShoppingList(buildShoppingList(plan, data as IngredientRow[]));
     }
   };
 
@@ -139,10 +158,6 @@ function PlanContent() {
         setExportMessage("Export hat nicht geklappt – Zwischenablage und Teilen sind nicht verfügbar.");
     }
   };
-
-  if (loading) {
-    return <div className="p-6 text-center text-slate-500">Lade Wochenplan...</div>;
-  }
 
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-6 pb-24">
@@ -188,7 +203,7 @@ function PlanContent() {
 
             <div className="space-y-3">
               <select
-                value={day.recipeId || ""}
+                value={day.recipeId ?? ""}
                 onChange={(e) => handleAssignRecipe(day.dayName, e.target.value)}
                 className="w-full p-2.5 text-base rounded-xl border border-slate-200 bg-slate-50 text-slate-700 focus:outline-none focus:ring-2 focus:ring-green-500"
               >
@@ -202,6 +217,7 @@ function PlanContent() {
 
               {day.recipe && (
                 <div className="flex items-center gap-3 p-2 bg-green-50 rounded-xl border border-green-100">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={day.recipe.image_url}
                     alt={day.recipe.title}
@@ -225,10 +241,33 @@ function PlanContent() {
           <p className="text-sm text-slate-400">Wähle oben Gerichte für die Woche aus, um die Einkaufsliste zu generieren.</p>
         ) : (
           <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {shoppingList.map((item, index) => (
-              <li key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100 text-sm">
-                <span className="font-medium text-slate-700">{item.name}</span>
-                {item.amount && <span className="text-xs text-slate-500 bg-white px-2 py-1 rounded-md border border-slate-200">{item.amount}</span>}
+            {shoppingList.map((item) => (
+              <li
+                key={item.name.toLowerCase()}
+                className={`flex items-center justify-between gap-2 p-3 rounded-xl border text-sm ${
+                  item.count > 1 ? "bg-amber-50 border-amber-200" : "bg-slate-50 border-slate-100"
+                }`}
+              >
+                <span className="font-medium text-slate-700">
+                  {item.name}
+                  {item.count > 1 && (
+                    <span className="ml-2 text-xs font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+                      {item.count}× benötigt
+                    </span>
+                  )}
+                </span>
+                {item.amounts.length > 0 && (
+                  <span className="flex flex-wrap justify-end gap-1">
+                    {item.amounts.map((amount, index) => (
+                      <span
+                        key={index}
+                        className="text-xs text-slate-500 bg-white px-2 py-1 rounded-md border border-slate-200"
+                      >
+                        {amount}
+                      </span>
+                    ))}
+                  </span>
+                )}
               </li>
             ))}
           </ul>
