@@ -39,7 +39,18 @@ function PlanContent() {
   }, []);
 
   const fetchRecipes = async () => {
-    const { data, error } = await supabase.from("recipes").select("*");
+    // Holt die IDs aus der URL (z.B. ?ids=uuid-1,uuid-2)
+    const selectedIdsParam = searchParams.get("ids");
+    
+    let query = supabase.from("recipes").select("*");
+
+    // Wenn IDs übergeben wurden, filtern wir die Rezepte direkt
+    if (selectedIdsParam) {
+      const ids = selectedIdsParam.split(",");
+      query = query.in("id", ids);
+    }
+
+    const { data, error } = await query;
     if (!error && data) {
       setRecipes(data);
     }
