@@ -145,9 +145,9 @@ export default function Home() {
       {/* Header */}
       <header className="mb-8 flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800">Familien-Speiseplan 🍕</h1>
+          <h1 className="text-3xl font-bold text-slate-800">Speiseplan</h1>
           <p className="text-slate-500 mt-1 text-sm">
-            Tippe auf ein Gericht, um es für die Woche auszuwählen.
+            Plane für Woche
           </p>
         </div>
         <button
@@ -238,7 +238,7 @@ export default function Home() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Foto vom Gericht (Kamera / Mediathek)</label>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Foto vom Gericht</label>
                   <input
                     type="file"
                     accept="image/*"
