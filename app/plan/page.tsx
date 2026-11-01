@@ -210,11 +210,13 @@ function PlanContent() {
     switch (result) {
       case "copied":
         setExportMessage(
-          "Plan kopiert. Öffne Erinnerungen, lege eine neue Liste an und füge den Text ein – jede Zeile wird eine Checkbox."
+          "Teilen ist hier nicht verfügbar, der Plan wurde stattdessen kopiert. In Erinnerungen landet er beim Einfügen allerdings in einer einzigen Zeile."
         );
         break;
       case "shared":
-        setExportMessage("Plan geteilt. Wähle Erinnerungen als Ziel.");
+        setExportMessage("");
+        break;
+      case "cancelled":
         break;
       case "empty":
         setExportMessage("Wähle zuerst mindestens ein Gericht für die Woche aus.");
@@ -258,6 +260,25 @@ function PlanContent() {
           {exportMessage}
         </p>
       )}
+
+      <details className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 text-sm text-slate-600">
+        <summary className="cursor-pointer font-medium text-slate-700">
+          Einmalige Einrichtung für den Erinnerungen-Export
+        </summary>
+        <div className="mt-3 space-y-2">
+          <p>
+            Der Export teilt den Plan als Text (eine Zeile pro Tag). Damit daraus je eine Checkbox in
+            Erinnerungen wird, braucht es einmalig einen Kurzbefehl:
+          </p>
+          <ol className="list-decimal pl-5 space-y-1">
+            <li>Kurzbefehle-App öffnen und einen neuen Kurzbefehl anlegen, Name zum Beispiel „Essensplan“.</li>
+            <li>Aktion „Text aufteilen“ hinzufügen: Text = Kurzbefehl-Eingabe, Trennzeichen = Neue Zeilen.</li>
+            <li>Aktion „Für jedes Element wiederholen“ hinzufügen, darin „Neue Erinnerung hinzufügen“ mit dem Wiederholungselement und der gewünschten Liste.</li>
+            <li>Im Info-Menü des Kurzbefehls „Im Share Sheet anzeigen“ aktivieren und als Eingabe nur Text zulassen.</li>
+          </ol>
+          <p>Danach beim Export im Teilen-Menü „Essensplan“ wählen.</p>
+        </div>
+      </details>
 
       {/* Wochentage Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
