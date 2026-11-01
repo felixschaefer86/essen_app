@@ -21,6 +21,8 @@ export default function Home() {
   const [newTitle, setNewTitle] = useState("");
   const [newCategory, setNewCategory] = useState("Hauptgericht");
   const [newImageUrl, setNewImageUrl] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+
   const [ingredients, setIngredients] = useState<{ name: string; amount: string }[]>([
     { name: "", amount: "" },
   ]);
@@ -77,14 +79,33 @@ export default function Home() {
     if (!newTitle) return;
     setSaving(true);
 
-    // 1. Rezept speichern
+    let finalImageUrl = "https://images.unsplash.com/photo-1498837167922-ddd27525d352?w=500"; // Fallback
+
+    // Wenn ein Bild ausgewählt/fotografiert wurde, hochladen:
+    if (imageFile) {
+      const fileName = `${Date.now()}-${imageFile.name}`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("recipe-images")
+        .upload(fileName, imageFile);
+
+      if (!uploadError && uploadData) {
+        // Öffentliche URL des Bildes abrufen
+        const { data: publicUrlData } = supabase.storage
+          .from("recipe-images")
+          .getPublicUrl(uploadData.path);
+        
+        finalImageUrl = publicUrlData.publicUrl;
+      }
+    }
+
+    // 3. Rezept mit der echten Bild-URL in Supabase speichern
     const { data: recipeData, error: recipeError } = await supabase
       .from("recipes")
       .insert([
         {
           title: newTitle,
           category: newCategory,
-          image_url: newImageUrl || "https://images.unsplash.com/photo-1498837167922-ddd27525d352?w=500",
+          image_url: finalImageUrl,
         },
       ])
       .select();
@@ -97,7 +118,7 @@ export default function Home() {
 
     const createdRecipeId = recipeData[0].id;
 
-    // 2. Zutaten filtern & speichern
+    // Zutaten speichern (bleibt wie gehabt)...
     const validIngredients = ingredients
       .filter((ing) => ing.name.trim() !== "")
       .map((ing) => ({
@@ -107,18 +128,12 @@ export default function Home() {
       }));
 
     if (validIngredients.length > 0) {
-      const { error: ingError } = await supabase
-        .from("recipe_ingredients")
-        .insert(validIngredients);
-
-      if (ingError) {
-        console.error("Fehler beim Speichern der Zutaten:", ingError);
-      }
+      await supabase.from("recipe_ingredients").insert(validIngredients);
     }
 
-    // Formular zurücksetzen & Liste aktualisieren
+    // Zurücksetzen
     setNewTitle("");
-    setNewImageUrl("");
+    setImageFile(null);
     setIngredients([{ name: "", amount: "" }]);
     setIsModalOpen(false);
     setSaving(false);
@@ -223,13 +238,17 @@ export default function Home() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Bild-URL (optional)</label>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Foto vom Gericht (Kamera / Mediathek)</label>
                   <input
-                    type="url"
-                    placeholder="https://..."
-                    value={newImageUrl}
-                    onChange={(e) => setNewImageUrl(e.target.value)}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-green-500"
+                    type="file"
+                    accept="image/*"
+                    capture="environment" // Öffnet auf dem iPhone direkt die Kamera!
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        setImageFile(e.target.files[0]);
+                      }
+                    }}
+                    className="w-full p-2 rounded-xl border border-slate-200 text-xs bg-white text-slate-600 file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
                   />
                 </div>
               </div>
