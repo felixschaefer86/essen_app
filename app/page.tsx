@@ -242,7 +242,6 @@ export default function Home() {
                   <input
                     type="file"
                     accept="image/*"
-                    capture="environment" // Öffnet auf dem iPhone direkt die Kamera!
                     onChange={(e) => {
                       if (e.target.files && e.target.files[0]) {
                         setImageFile(e.target.files[0]);
