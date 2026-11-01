@@ -5,7 +5,6 @@ import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../src/lib/supabase";
 import {
-  exportToReminders,
   exportDayToReminder,
   exportShoppingList,
   type PlanEntry,
@@ -230,12 +229,6 @@ function PlanContent() {
     }
   };
 
-  const handleExportReminders = async () =>
-    showExportResult(
-      await exportToReminders(weeklyPlan.map(toPlanEntry)),
-      "Wähle zuerst mindestens ein Gericht für die Woche aus."
-    );
-
   const handleExportDay = async (day: DayPlan) =>
     showExportResult(await exportDayToReminder(toPlanEntry(day)), "Für diesen Tag ist kein Gericht gewählt.");
 
@@ -254,17 +247,9 @@ function PlanContent() {
         </button>
       </div>
 
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Wochenplan & Einkaufsliste</h1>
-          <p className="text-sm text-slate-500">Plane deine Gerichte und erhalte automatisch deine Einkaufsliste.</p>
-        </div>
-        <button
-          onClick={handleExportReminders}
-          className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm rounded-xl transition-all shadow-sm"
-        >
-          ✅ In Erinnerungen exportieren
-        </button>
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+        <h1 className="text-2xl font-bold text-slate-800">Wochenplan</h1>
+        <p className="text-sm text-slate-500">Plane deine Gerichte und erhalte automatisch deine Einkaufsliste.</p>
       </div>
 
       {syncError && (
@@ -276,29 +261,6 @@ function PlanContent() {
           {exportMessage}
         </p>
       )}
-
-      <details className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 text-sm text-slate-600">
-        <summary className="cursor-pointer font-medium text-slate-700">
-          Einmalige Einrichtung für den Erinnerungen-Export
-        </summary>
-        <div className="mt-3 space-y-2">
-          <p>
-            Wochenplan und Einkaufsliste werden als Text geteilt (eine Zeile pro Eintrag). Damit daraus je
-            eine Checkbox in Erinnerungen wird, braucht es einmalig einen Kurzbefehl:
-          </p>
-          <ol className="list-decimal pl-5 space-y-1">
-            <li>Kurzbefehle-App öffnen und einen neuen Kurzbefehl anlegen, Name zum Beispiel „Essensplan“.</li>
-            <li>Aktion „Text aufteilen“ hinzufügen: Text = Kurzbefehl-Eingabe, Trennzeichen = Neue Zeilen.</li>
-            <li>Aktion „Für jedes Element wiederholen“ hinzufügen, darin „Neue Erinnerung hinzufügen“ mit dem Wiederholungselement und der gewünschten Liste.</li>
-            <li>Im Info-Menü des Kurzbefehls „Im Share Sheet anzeigen“ aktivieren und als Eingabe nur Text zulassen.</li>
-          </ol>
-          <p>
-            Danach beim Export im Teilen-Menü „Essensplan“ wählen. Für die Einkaufsliste am besten einen
-            zweiten Kurzbefehl („Einkauf“) mit derselben Abfolge anlegen, aber mit einer eigenen Liste als
-            Ziel. Ein einzelner Tag lässt sich auch direkt an Erinnerungen teilen (dann eine Erinnerung).
-          </p>
-        </div>
-      </details>
 
       {/* Wochentage Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
