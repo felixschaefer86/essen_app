@@ -212,7 +212,7 @@ export default function Home() {
 
             <form onSubmit={handleSaveRecipe} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Name des Gerichts</label>
+                <label className="block text-base font-semibold text-slate-600 mb-1">Name des Gerichts</label>
                 <input
                   type="text"
                   required
@@ -225,7 +225,7 @@ export default function Home() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Kategorie</label>
+                  <label className="block text-base font-semibold text-slate-600 mb-1">Kategorie</label>
                   <select
                     value={newCategory}
                     onChange={(e) => setNewCategory(e.target.value)}
@@ -238,7 +238,7 @@ export default function Home() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Foto vom Gericht</label>
+                  <label className="block text-base font-semibold text-slate-600 mb-1">Foto vom Gericht</label>
                   <input
                     type="file"
                     accept="image/*"
@@ -247,7 +247,7 @@ export default function Home() {
                         setImageFile(e.target.files[0]);
                       }
                     }}
-                    className="w-full p-2 rounded-xl border border-slate-200 text-xs bg-white text-slate-600 file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
+                    className="w-full p-2 rounded-xl border border-slate-200 text-base bg-white text-slate-600 file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-base file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
                   />
                 </div>
               </div>
@@ -263,20 +263,20 @@ export default function Home() {
                         placeholder="Zutat (z. B. Nudeln)"
                         value={ing.name}
                         onChange={(e) => handleIngredientChange(idx, "name", e.target.value)}
-                        className="flex-2 w-full p-2 rounded-xl border border-slate-200 text-xs focus:outline-none"
+                        className="flex-2 w-full p-2 rounded-xl border border-slate-200 text-base focus:outline-none"
                       />
                       <input
                         type="text"
                         placeholder="Menge (z. B. 500g)"
                         value={ing.amount}
                         onChange={(e) => handleIngredientChange(idx, "amount", e.target.value)}
-                        className="w-28 p-2 rounded-xl border border-slate-200 text-xs focus:outline-none"
+                        className="w-28 p-2 rounded-xl border border-slate-200 text-base focus:outline-none"
                       />
                       {ingredients.length > 1 && (
                         <button
                           type="button"
                           onClick={() => removeIngredientField(idx)}
-                          className="text-red-500 text-xs font-bold px-2 py-1"
+                          className="text-red-500 text-base font-bold px-2 py-1"
                         >
                           ✕
                         </button>
@@ -287,7 +287,7 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={addIngredientField}
-                  className="mt-2 text-xs font-semibold text-green-600 hover:text-green-700"
+                  className="mt-2 text-base font-semibold text-green-600 hover:text-green-700"
                 >
                   + Weitere Zutat hinzufügen
                 </button>
@@ -298,14 +298,14 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-500 bg-slate-100"
+                  className="px-4 py-2 rounded-xl text-base font-semibold text-slate-500 bg-slate-100"
                 >
                   Abbrechen
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-green-600 hover:bg-green-700 disabled:bg-slate-300"
+                  className="px-4 py-2 rounded-xl text-base font-semibold text-white bg-green-600 hover:bg-green-700 disabled:bg-slate-300"
                 >
                   {saving ? "Speichere..." : "Rezept speichern"}
                 </button>
