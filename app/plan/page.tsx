@@ -1,9 +1,9 @@
-"use type"; // Falls Next.js 15+ Server Components Standard sind, ansonsten als Client Component markieren:
 "use client";
 
 import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { supabase } from "../../src/lib/supabase"; // Passe den Pfad zu deinem Supabase-Client an falls nötig
+import { useRouter } from "next/navigation";
+import { supabase } from "../../src/lib/supabase";
 import { generateICS } from "../../src/lib/ical";
 
 interface Recipe {
@@ -26,13 +26,13 @@ interface DayPlan {
 }
 
 function PlanContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [weeklyPlan, setWeeklyPlan] = useState<DayPlan[]>([]);
   const [shoppingList, setShoppingList] = useState<Ingredient[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Wochentage initialisieren (startet mit dem aktuellen Montag oder der aktuellen Woche)
   useEffect(() => {
     fetchRecipes();
     initWeekDays();
@@ -47,7 +47,7 @@ function PlanContent() {
 
   const initWeekDays = () => {
     const today = new Date();
-    const currentDayOfWeek = today.getDay(); // 0 = Sonntag, 1 = Montag, etc.
+    const currentDayOfWeek = today.getDay();
     const distanceToMonday = currentDayOfWeek === 0 ? -6 : 1 - currentDayOfWeek;
     
     const monday = new Date(today);
@@ -70,7 +70,6 @@ function PlanContent() {
     setLoading(false);
   };
 
-  // Gericht einem Tag zuweisen
   const handleAssignRecipe = (dayName: string, recipeId: string) => {
     const selectedRecipe = recipes.find((r) => r.id === recipeId) || null;
     
@@ -85,7 +84,6 @@ function PlanContent() {
     generateShoppingList(updated);
   };
 
-  // Einkaufsliste automatisch aus den zugewiesenen Rezepten generieren
   const generateShoppingList = async (plan: DayPlan[]) => {
     const recipeIds = plan.filter((d) => d.recipeId !== null).map((d) => d.recipeId as string);
     
@@ -104,7 +102,6 @@ function PlanContent() {
     }
   };
 
-  // iCal Export auslösen
   const handleExportCalendar = () => {
     const exportData = weeklyPlan.map((day) => ({
       day: day.dayName,
@@ -120,8 +117,17 @@ function PlanContent() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-4 space-y-8 pb-24">
-      {/* Kopfbereich & Export */}
+    <div className="max-w-4xl mx-auto p-4 space-y-6 pb-24">
+      {/* Navigation / Zurück-Button & Header */}
+      <div className="flex items-center justify-between">
+        <button
+          onClick={() => router.push("/")}
+          className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-sm rounded-xl transition-all"
+        >
+          ← Zurück zur Startseite
+        </button>
+      </div>
+
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Wochenplan & Einkaufsliste</h1>
@@ -198,7 +204,6 @@ function PlanContent() {
   );
 }
 
-// Hauptkomponente mit Suspense-Wrapper wegen useSearchParams
 export default function PlanPage() {
   return (
     <Suspense fallback={<div className="p-6 text-center text-slate-500">Lade Seite...</div>}>
