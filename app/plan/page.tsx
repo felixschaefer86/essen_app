@@ -4,7 +4,13 @@ import React, { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../src/lib/supabase";
-import { exportToReminders } from "../../src/lib/reminders";
+import {
+  exportToReminders,
+  exportDayToReminder,
+  exportShoppingList,
+  type PlanEntry,
+  type ReminderExportResult,
+} from "../../src/lib/reminders";
 
 interface Recipe {
   id: number;
@@ -198,31 +204,43 @@ function PlanContent() {
     setSyncError(error ? "Speichern fehlgeschlagen – die Änderung ist nur auf diesem Gerät sichtbar." : "");
   };
 
-  const handleExportReminders = async () => {
-    const exportData = weeklyPlan.map((day) => ({
-      day: day.dayName,
-      date: day.date,
-      recipeTitle: day.recipe ? day.recipe.title : "",
-    }));
+  const toPlanEntry = (day: DayPlan): PlanEntry => ({
+    day: day.dayName,
+    date: day.date,
+    recipeTitle: day.recipe ? day.recipe.title : "",
+  });
 
-    const result = await exportToReminders(exportData);
-
+  const showExportResult = (result: ReminderExportResult, emptyMessage: string) => {
     switch (result) {
       case "copied":
         setExportMessage(
-          "Plan kopiert. Öffne Erinnerungen, lege eine neue Liste an und füge den Text ein – jede Zeile wird eine Checkbox."
+          "Teilen ist hier nicht verfügbar, der Text wurde stattdessen kopiert. In Erinnerungen landet er beim Einfügen allerdings in einer einzigen Zeile."
         );
         break;
       case "shared":
-        setExportMessage("Plan geteilt. Wähle Erinnerungen als Ziel.");
+        setExportMessage("");
+        break;
+      case "cancelled":
         break;
       case "empty":
-        setExportMessage("Wähle zuerst mindestens ein Gericht für die Woche aus.");
+        setExportMessage(emptyMessage);
         break;
       default:
         setExportMessage("Export hat nicht geklappt – Zwischenablage und Teilen sind nicht verfügbar.");
     }
   };
+
+  const handleExportReminders = async () =>
+    showExportResult(
+      await exportToReminders(weeklyPlan.map(toPlanEntry)),
+      "Wähle zuerst mindestens ein Gericht für die Woche aus."
+    );
+
+  const handleExportDay = async (day: DayPlan) =>
+    showExportResult(await exportDayToReminder(toPlanEntry(day)), "Für diesen Tag ist kein Gericht gewählt.");
+
+  const handleExportShopping = async () =>
+    showExportResult(await exportShoppingList(shoppingList), "Die Einkaufsliste ist leer.");
 
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-6 pb-24">
@@ -259,6 +277,29 @@ function PlanContent() {
         </p>
       )}
 
+      <details className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 text-sm text-slate-600">
+        <summary className="cursor-pointer font-medium text-slate-700">
+          Einmalige Einrichtung für den Erinnerungen-Export
+        </summary>
+        <div className="mt-3 space-y-2">
+          <p>
+            Wochenplan und Einkaufsliste werden als Text geteilt (eine Zeile pro Eintrag). Damit daraus je
+            eine Checkbox in Erinnerungen wird, braucht es einmalig einen Kurzbefehl:
+          </p>
+          <ol className="list-decimal pl-5 space-y-1">
+            <li>Kurzbefehle-App öffnen und einen neuen Kurzbefehl anlegen, Name zum Beispiel „Essensplan“.</li>
+            <li>Aktion „Text aufteilen“ hinzufügen: Text = Kurzbefehl-Eingabe, Trennzeichen = Neue Zeilen.</li>
+            <li>Aktion „Für jedes Element wiederholen“ hinzufügen, darin „Neue Erinnerung hinzufügen“ mit dem Wiederholungselement und der gewünschten Liste.</li>
+            <li>Im Info-Menü des Kurzbefehls „Im Share Sheet anzeigen“ aktivieren und als Eingabe nur Text zulassen.</li>
+          </ol>
+          <p>
+            Danach beim Export im Teilen-Menü „Essensplan“ wählen. Für die Einkaufsliste am besten einen
+            zweiten Kurzbefehl („Einkauf“) mit derselben Abfolge anlegen, aber mit einer eigenen Liste als
+            Ziel. Ein einzelner Tag lässt sich auch direkt an Erinnerungen teilen (dann eine Erinnerung).
+          </p>
+        </div>
+      </details>
+
       {/* Wochentage Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {weeklyPlan.map((day) => (
@@ -292,10 +333,17 @@ function PlanContent() {
                     alt={day.recipe.title}
                     className="w-12 h-12 rounded-lg object-cover"
                   />
-                  <div className="text-xs">
+                  <div className="text-xs flex-1 min-w-0">
                     <p className="font-semibold text-green-900">{day.recipe.title}</p>
                     <p className="text-green-700">{day.recipe.category}</p>
                   </div>
+                  <button
+                    onClick={() => handleExportDay(day)}
+                    aria-label={`${day.dayName} in Erinnerungen teilen`}
+                    className="shrink-0 px-2 py-1 text-xs font-medium text-green-700 hover:text-green-900 hover:bg-green-100 rounded-lg transition-colors"
+                  >
+                    ↗ Teilen
+                  </button>
                 </div>
               )}
             </div>
@@ -305,7 +353,17 @@ function PlanContent() {
 
       {/* Einkaufsliste */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-        <h2 className="text-lg font-bold text-slate-800 mb-4">🛒 Einkaufsliste</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-slate-800">🛒 Einkaufsliste</h2>
+          {shoppingList.length > 0 && (
+            <button
+              onClick={handleExportShopping}
+              className="px-3 py-1.5 text-xs font-medium text-slate-600 border border-slate-200 hover:bg-slate-50 rounded-xl transition-colors"
+            >
+              ↗ Teilen
+            </button>
+          )}
+        </div>
         {shoppingList.length === 0 ? (
           <p className="text-sm text-slate-400">Wähle oben Gerichte für die Woche aus, um die Einkaufsliste zu generieren.</p>
         ) : (
