@@ -35,26 +35,15 @@ export function generateICS(weeklyPlan: { day: string; date: Date; recipeTitle: 
   icsContent.push("END:VCALENDAR");
 
   const fileString = icsContent.join("\r\n");
-  const blob = new Blob([fileString], { type: "text/calendar;charset=utf-8" });
   const fileName = `Speiseplan-Woche-${new Date().toISOString().slice(0, 10)}.ics`;
 
-  // Prüfen, ob der Web-Share-Dialog auf Mobilgeräten unterstützt wird (iOS Safari liebt das)
-  const file = new File([blob], fileName, { type: "text/calendar" });
+  // Direkter Data-URI-Download (wird von iOS Safari direkt als Kalender-Datei interpretiert)
+  const encodedUri = "data:text/calendar;charset=utf-8," + encodeURIComponent(fileString);
   
-  if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    navigator.share({
-      files: [file],
-      title: "Wochenplan Kalender",
-      text: "Dein geplanter Speiseplan als Kalenderdatei",
-    }).catch((error) => console.log("Share abgebrochen", error));
-  } else {
-    // Fallback für normale Browser / Desktop
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", fileName);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  }
+  const link = document.createElement("a");
+  link.setAttribute("href", encodedUri);
+  link.setAttribute("download", fileName);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }
