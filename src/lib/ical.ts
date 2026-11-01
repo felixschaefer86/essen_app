@@ -34,16 +34,21 @@ export function generateICS(weeklyPlan: { day: string; date: Date; recipeTitle: 
 
   icsContent.push("END:VCALENDAR");
 
-  const fileString = icsContent.join("\r\n");
-  const fileName = `Speiseplan-Woche-${new Date().toISOString().slice(0, 10)}.ics`;
+  const blob = new Blob([icsContent.join("\r\n")], { type: "text/calendar;charset=utf-8" });
+  const url = window.URL.createObjectURL(blob);
 
-  // Direkter Data-URI-Download (wird von iOS Safari direkt als Kalender-Datei interpretiert)
-  const encodedUri = "data:text/calendar;charset=utf-8," + encodeURIComponent(fileString);
+  // Auf iOS Safari öffnet window.open den Blob direkt in einem neuen Tab, 
+  // von wo aus Safari ihn perfekt an die Kalender-App übergeben kann.
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
   
-  const link = document.createElement("a");
-  link.setAttribute("href", encodedUri);
-  link.setAttribute("download", fileName);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+  if (isIOS) {
+    window.location.href = url;
+  } else {
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `Speiseplan-Woche-${new Date().toISOString().slice(0, 10)}.ics`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
 }
