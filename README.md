@@ -38,3 +38,9 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 ## App idea
 
 Create a meal plan for the family. Let users select preferred meals from the database (including incredients & images) and let them to be plan on weekdays. 
+
+## Gemeinsamer Wochenplan
+
+Der Wochenplan (Samstag bis Freitag) wird in der Supabase-Tabelle `meal_plan` gespeichert, sodass
+alle angemeldeten Familienmitglieder an derselben Planung arbeiten. Einmalig `supabase/meal_plan.sql`
+im Supabase-SQL-Editor ausführen.

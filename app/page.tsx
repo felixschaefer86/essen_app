@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../src/lib/supabase";
 
@@ -20,7 +20,6 @@ export default function Home() {
   // Formular-Zustände für neues Rezept
   const [newTitle, setNewTitle] = useState("");
   const [newCategory, setNewCategory] = useState("Hauptgericht");
-  const [newImageUrl, setNewImageUrl] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
 
   const [ingredients, setIngredients] = useState<{ name: string; amount: string }[]>([
@@ -30,25 +29,29 @@ export default function Home() {
 
   const router = useRouter();
 
-  const fetchRecipes = async () => {
+  // Liefert die Rezepte oder null, wenn auf /login umgeleitet wurde.
+  const loadRecipes = useCallback(async (): Promise<Recipe[] | null> => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
       router.push("/login");
-      return;
+      return null;
     }
 
     const { data, error } = await supabase.from("recipes").select("*").order("id", { ascending: false });
     if (error) {
       console.error("Fehler beim Laden:", error);
-    } else if (data) {
-      setRecipes(data);
+      return [];
     }
-    setLoading(false);
-  };
+    return data ?? [];
+  }, [router]);
 
   useEffect(() => {
-    fetchRecipes();
-  }, [router]);
+    loadRecipes().then((data) => {
+      if (data === null) return;
+      setRecipes(data);
+      setLoading(false);
+    });
+  }, [loadRecipes]);
 
   const toggleSelect = (id: number) => {
     if (selectedIds.includes(id)) {
@@ -83,12 +86,16 @@ export default function Home() {
 
     // Wenn ein Bild ausgewählt/fotografiert wurde, hochladen:
     if (imageFile) {
-      const fileName = `${Date.now()}-${imageFile.name}`;
+      // Leerzeichen, Umlaute etc. im Dateinamen würden den Storage-Upload scheitern lassen
+      const safeName = imageFile.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const fileName = `${Date.now()}-${safeName}`;
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from("recipe-images")
         .upload(fileName, imageFile);
 
-      if (!uploadError && uploadData) {
+      if (uploadError) {
+        console.error("Fehler beim Bild-Upload:", uploadError);
+      } else if (uploadData) {
         // Öffentliche URL des Bildes abrufen
         const { data: publicUrlData } = supabase.storage
           .from("recipe-images")
@@ -137,7 +144,9 @@ export default function Home() {
     setIngredients([{ name: "", amount: "" }]);
     setIsModalOpen(false);
     setSaving(false);
-    fetchRecipes();
+
+    const data = await loadRecipes();
+    if (data) setRecipes(data);
   };
 
   return (
@@ -177,6 +186,7 @@ export default function Home() {
                 }`}
               >
                 <div className="h-36 w-full bg-slate-200 relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={recipe.image_url}
                     alt={recipe.title}
