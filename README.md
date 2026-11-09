@@ -44,3 +44,9 @@ Create a meal plan for the family. Let users select preferred meals from the dat
 Der Wochenplan (Samstag bis Freitag) wird in der Supabase-Tabelle `meal_plan` gespeichert, sodass
 alle angemeldeten Familienmitglieder an derselben Planung arbeiten. Einmalig `supabase/meal_plan.sql`
 im Supabase-SQL-Editor ausführen.
+
+## Tags
+
+Rezepte haben beliebig viele Tags (z. B. `#Fleisch`, `#Vorspeise`) statt einer Kategorie. Einmalig
+`supabase/recipe_tags.sql` im Supabase-SQL-Editor ausführen: Es legt die Spalte `recipes.tags` an und
+übernimmt die bisherige Kategorie als ersten Tag.

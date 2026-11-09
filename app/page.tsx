@@ -1,15 +1,18 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../src/lib/supabase";
+import { collectTags, filterRecipes, normalizeTag, normalizeTags } from "../src/lib/tags";
 
 type Recipe = {
   id: number;
   title: string;
-  category: string;
+  tags: string[] | null;
   image_url: string;
 };
+
+const MAX_TAGS_ON_CARD = 2;
 
 export default function Home() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
@@ -19,8 +22,13 @@ export default function Home() {
 
   // Formular-Zustände für neues Rezept
   const [newTitle, setNewTitle] = useState("");
-  const [newCategory, setNewCategory] = useState("Hauptgericht");
+  const [newTags, setNewTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
+
+  // Suche und Filter auf der Übersicht
+  const [searchText, setSearchText] = useState("");
+  const [tagFilter, setTagFilter] = useState("");
 
   const [ingredients, setIngredients] = useState<{ name: string; amount: string }[]>([
     { name: "", amount: "" },
@@ -52,6 +60,24 @@ export default function Home() {
       setLoading(false);
     });
   }, [loadRecipes]);
+
+  const allTags = useMemo(() => collectTags(recipes), [recipes]);
+  const visibleRecipes = useMemo(
+    () => filterRecipes(recipes, searchText, tagFilter),
+    [recipes, searchText, tagFilter]
+  );
+  const filterActive = searchText.trim() !== "" || tagFilter !== "";
+
+  // Tags im Formular verwalten (Enter oder Komma fügt hinzu)
+  const addTag = (raw: string) => {
+    const merged = normalizeTags([...newTags, raw]);
+    setNewTags(merged);
+    setTagInput("");
+  };
+
+  const removeTag = (tag: string) => {
+    setNewTags(newTags.filter((t) => t !== tag));
+  };
 
   const toggleSelect = (id: number) => {
     if (selectedIds.includes(id)) {
@@ -111,7 +137,8 @@ export default function Home() {
       .insert([
         {
           title: newTitle,
-          category: newCategory,
+          // Ein noch nicht mit Enter bestätigter Tag im Eingabefeld zählt mit
+          tags: normalizeTags([...newTags, tagInput]),
           image_url: finalImageUrl,
         },
       ])
@@ -140,6 +167,8 @@ export default function Home() {
 
     // Zurücksetzen
     setNewTitle("");
+    setNewTags([]);
+    setTagInput("");
     setImageFile(null);
     setIngredients([{ name: "", amount: "" }]);
     setIsModalOpen(false);
@@ -167,13 +196,56 @@ export default function Home() {
         </button>
       </header>
 
+      {/* Suche und Tag-Filter */}
+      {!loading && recipes.length > 0 && (
+        <div className="mb-5 flex flex-col sm:flex-row gap-2">
+          <input
+            type="search"
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            placeholder="Rezept oder Tag suchen"
+            aria-label="Rezepte durchsuchen"
+            className="flex-1 p-2.5 rounded-xl border border-slate-200 bg-white text-base text-slate-700 focus:outline-none focus:border-green-500"
+          />
+          {allTags.length > 0 && (
+            <select
+              value={tagFilter}
+              onChange={(e) => setTagFilter(e.target.value)}
+              aria-label="Nach Tag filtern"
+              className="sm:w-48 p-2.5 rounded-xl border border-slate-200 bg-white text-base text-slate-700 focus:outline-none focus:border-green-500"
+            >
+              <option value="">Alle Tags</option>
+              {allTags.map((tag) => (
+                <option key={tag} value={tag}>
+                  #{tag}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+      )}
+
       {/* Grid mit Rezept-Kacheln */}
       {loading ? (
         <div className="text-center py-12 text-slate-400">Lade Rezepte...</div>
+      ) : filterActive && visibleRecipes.length === 0 ? (
+        <div className="text-center py-12 text-slate-400">
+          <p>Keine Rezepte gefunden.</p>
+          <button
+            onClick={() => {
+              setSearchText("");
+              setTagFilter("");
+            }}
+            className="mt-2 text-sm font-semibold text-green-600 hover:text-green-700"
+          >
+            Filter zurücksetzen
+          </button>
+        </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-          {recipes.map((recipe) => {
+          {visibleRecipes.map((recipe) => {
             const isSelected = selectedIds.includes(recipe.id);
+            const tags = recipe.tags ?? [];
 
             return (
               <div
@@ -201,9 +273,23 @@ export default function Home() {
                   )}
                 </div>
                 <div className="p-3 bg-white">
-                  <span className="text-[10px] font-semibold text-green-600 bg-green-50 px-2 py-0.5 rounded-full inline-block mb-1">
-                    {recipe.category}
-                  </span>
+                  {tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mb-1">
+                      {tags.slice(0, MAX_TAGS_ON_CARD).map((tag) => (
+                        <span
+                          key={tag}
+                          className="text-[10px] font-semibold text-green-600 bg-green-50 px-2 py-0.5 rounded-full max-w-full truncate"
+                        >
+                          #{tag}
+                        </span>
+                      ))}
+                      {tags.length > MAX_TAGS_ON_CARD && (
+                        <span className="text-[10px] font-semibold text-slate-400 px-1 py-0.5">
+                          +{tags.length - MAX_TAGS_ON_CARD}
+                        </span>
+                      )}
+                    </div>
+                  )}
                   <h3 className="text-sm font-medium text-slate-800 leading-snug line-clamp-2">
                     {recipe.title}
                   </h3>
@@ -233,33 +319,79 @@ export default function Home() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-base font-semibold text-slate-600 mb-1">Kategorie</label>
-                  <select
-                    value={newCategory}
-                    onChange={(e) => setNewCategory(e.target.value)}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none"
-                  >
-                    <option value="Hauptgericht">Hauptgericht</option>
-                    <option value="Schnell & Einfach">Schnell & Einfach</option>
-                    <option value="Vegetarisch">Vegetarisch</option>
-                    <option value="Dessert">Dessert</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-base font-semibold text-slate-600 mb-1">Foto vom Gericht</label>
+              <div>
+                <label className="block text-base font-semibold text-slate-600 mb-1">Tags</label>
+                <div className="flex flex-wrap items-center gap-1.5 p-2 rounded-xl border border-slate-200 bg-white focus-within:border-green-500">
+                  {newTags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="flex items-center gap-1 text-sm font-medium text-green-700 bg-green-50 pl-2.5 pr-1.5 py-0.5 rounded-full"
+                    >
+                      #{tag}
+                      <button
+                        type="button"
+                        onClick={() => removeTag(tag)}
+                        aria-label={`Tag ${tag} entfernen`}
+                        className="text-green-600 hover:text-green-800 px-1"
+                      >
+                        ✕
+                      </button>
+                    </span>
+                  ))}
                   <input
-                    type="file"
-                    accept="image/*"
+                    type="text"
+                    list="known-tags"
+                    value={tagInput}
+                    placeholder={newTags.length === 0 ? "z. B. Fleisch, Vorspeise" : "Weiterer Tag"}
                     onChange={(e) => {
-                      if (e.target.files && e.target.files[0]) {
-                        setImageFile(e.target.files[0]);
+                      const value = e.target.value;
+                      // Komma schließt den Tag ab, auch beim Einfügen mehrerer Tags auf einmal
+                      if (value.includes(",")) {
+                        const parts = value.split(",");
+                        const last = parts.pop() ?? "";
+                        setNewTags(normalizeTags([...newTags, ...parts]));
+                        setTagInput(last.replace(/^\s+/, ""));
+                      } else {
+                        setTagInput(value);
                       }
                     }}
-                    className="w-full p-2 rounded-xl border border-slate-200 text-base bg-white text-slate-600 file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-base file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        // Enter im Tag-Feld soll nicht das ganze Formular abschicken
+                        e.preventDefault();
+                        if (normalizeTag(tagInput)) addTag(tagInput);
+                      } else if (e.key === "Backspace" && tagInput === "" && newTags.length > 0) {
+                        setNewTags(newTags.slice(0, -1));
+                      }
+                    }}
+                    onBlur={() => {
+                      if (normalizeTag(tagInput)) addTag(tagInput);
+                    }}
+                    className="flex-1 min-w-[8rem] p-1 text-base bg-transparent focus:outline-none"
                   />
+                  <datalist id="known-tags">
+                    {allTags
+                      .filter((tag) => !newTags.some((t) => t.toLowerCase() === tag.toLowerCase()))
+                      .map((tag) => (
+                        <option key={tag} value={tag} />
+                      ))}
+                  </datalist>
                 </div>
+                <p className="mt-1 text-xs text-slate-400">Mit Enter oder Komma bestätigen.</p>
+              </div>
+
+              <div>
+                <label className="block text-base font-semibold text-slate-600 mb-1">Foto vom Gericht</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      setImageFile(e.target.files[0]);
+                    }
+                  }}
+                  className="w-full p-2 rounded-xl border border-slate-200 text-base bg-white text-slate-600 file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-base file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
+                />
               </div>
 
               {/* Zutaten dynamisch hinzufügen */}
