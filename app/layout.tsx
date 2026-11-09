@@ -15,6 +15,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Familien-Speiseplan",
   description: "Wochenplan und Einkaufsliste für die Familie",
+  // Name unter dem Icon auf dem iPhone-Home-Bildschirm. Bewusst nicht über "appleWebApp",
+  // weil das zusätzlich den Vollbildmodus (ohne Safari-Leiste) einschalten würde.
+  other: { "apple-mobile-web-app-title": "Speiseplan" },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
