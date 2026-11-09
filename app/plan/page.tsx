@@ -236,7 +236,7 @@ function PlanContent() {
     showExportResult(await exportShoppingList(shoppingList), "Die Einkaufsliste ist leer.");
 
   return (
-    <div className="max-w-4xl mx-auto p-4 space-y-6 pb-24">
+    <div className="w-full max-w-4xl mx-auto p-4 space-y-6 pb-24">
       {/* Navigation / Zurück-Button & Header */}
       <div className="flex items-center justify-between">
         <button
