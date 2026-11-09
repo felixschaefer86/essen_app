@@ -14,7 +14,7 @@ import {
 interface Recipe {
   id: number;
   title: string;
-  category: string;
+  tags: string[] | null;
   image_url: string;
 }
 
@@ -297,7 +297,11 @@ function PlanContent() {
                   />
                   <div className="text-xs flex-1 min-w-0">
                     <p className="font-semibold text-green-900">{day.recipe.title}</p>
-                    <p className="text-green-700">{day.recipe.category}</p>
+                    {(day.recipe.tags ?? []).length > 0 && (
+                      <p className="text-green-700 truncate">
+                        {(day.recipe.tags ?? []).map((tag) => `#${tag}`).join(" ")}
+                      </p>
+                    )}
                   </div>
                   <button
                     onClick={() => handleExportDay(day)}
